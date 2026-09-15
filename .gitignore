@@ -65,3 +65,6 @@ lancedb/
 htmlcov/
 
 .agent/
+agent_docs/
+task.mdagent_docs/
+task.md
