@@ -1,0 +1,55 @@
+name: CI Build & Test Gate
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        if: hashFiles('pyproject.toml', 'requirements.txt') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies & Linters
+        if: hashFiles('pyproject.toml', 'requirements.txt') != ''
+        run: |
+          pip install flake8 black pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Python Flake8 & Black Check (Akvo Standard)
+        if: hashFiles('pyproject.toml', 'requirements.txt') != ''
+        run: |
+          flake8 . --max-line-length=79 --exclude=.venv,node_modules
+          black --check --line-length=79 .
+
+      - name: Python Pytest with 80% Coverage Gate
+        if: hashFiles('pyproject.toml', 'requirements.txt') != ''
+        run: |
+          pytest --cov=. --cov-fail-under=80
+
+      - name: Setup Node
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Node Dependencies & Test
+        if: hashFiles('package.json') != ''
+        run: |
+          npm ci
+          npx prettier --check "**/*.{ts,js,tsx,jsx,json}"
+          npm test -- --coverage --coverageThreshold='{"global":{"lines":80}}'

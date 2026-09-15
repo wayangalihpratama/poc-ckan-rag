@@ -1,0 +1,39 @@
+---
+version: v1.0
+name: CI-Pipeline
+agent:
+  machine:
+    type: e1-standard-2
+    os_image: ubuntu2004
+
+global_job_config:
+  secrets:
+    - name: coveralls
+  prologue:
+    commands:
+      - export CI_COMMIT="${SEMAPHORE_GIT_SHA:0:7}"
+      - export CI_BRANCH="${SEMAPHORE_GIT_BRANCH}"
+
+blocks:
+  - name: "Lint & Code Quality"
+    task:
+      prologue:
+        commands:
+          - checkout
+      jobs:
+        - name: Check Formatting & Lints
+          commands:
+            - if [ -f "setup.cfg" ] || [ -f "pyproject.toml" ]; then flake8 . --max-line-length=79; fi
+            - if [ -f "package.json" ]; then npx prettier --check "**/*.{ts,js,tsx,jsx,json}"; fi
+
+  - name: "Build, Test & Coverage (≥80%)"
+    task:
+      prologue:
+        commands:
+          - checkout
+      jobs:
+        - name: Run Test Suite & Check 80% Coverage Gate
+          commands:
+            - if [ -f "pytest.ini" ] || [ -d "tests" ]; then pytest --cov=. --cov-fail-under=80; fi
+            - if [ -f "package.json" ]; then npm test -- --coverage --coverageThreshold='{"global":{"lines":80}}'; fi
+            - if [ -f "artisan" ]; then php artisan test --coverage --min=80; fi

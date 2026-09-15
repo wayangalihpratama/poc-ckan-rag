@@ -1,0 +1,46 @@
+# ============================================================================
+# Antigravity Workspace Configuration (.agent/config.yaml or .agents/config.yaml)
+# ============================================================================
+# Tailor this configuration to your project's specific tech stack.
+# Trimming unneeded default skills drastically reduces token usage and improves
+# model focus.
+# ============================================================================
+
+skills:
+  # Explicitly allow only what your tech stack needs
+  allowlist:
+    - modern-web-guidance
+    - managing-python-dependencies
+    - uv
+    - debugging-protocol
+    - add-stack
+    - troubleshooting
+    - debug-optimize-lcp
+    - chrome-devtools
+    - a11y-debugging
+    - memory-leak-debugging
+
+  # Completely block heavy domain categories that bloat token context
+  blocklist:
+    # Mobile & Native Frameworks
+    - "flutter-*"
+    - "dart-*"
+    - "xcode-*"
+    - "android-*"
+
+    # Biological, Medical & Scientific Databases
+    - "*-database"
+    - "alphafold-*"
+    - "alphagenome-*"
+    - "protein-*"
+    - "literature-search-*"
+    - "science-skills-*"
+    - "scienceskillscommon"
+    - "pymol"
+
+    # Deep GCP Infrastructure & Data Pipelines (Enable only for dedicated Data/GCP pipelines)
+    - "gcp-*"
+    - "bigquery-*"
+    - "dataform-*"
+    - "dbt-*"
+    - "firebase-*"
