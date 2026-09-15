@@ -5,7 +5,7 @@ This QA Guide outlines the verification procedure for **Issue #4** ([`002_akvo_r
 
 ---
 
-## 2. Test Execution & Coverage
+## 2. Automated Test Execution & Coverage
 
 ### Scenario 1: Automated Unit Test Suite
 **Objective**: Verify all client endpoints, authentication headers, error classes, and edge cases pass with ≥80% test coverage.
@@ -17,27 +17,104 @@ This QA Guide outlines the verification procedure for **Issue #4** ([`002_akvo_r
 
 2. **Expected Output**:
    - `13 passed in ~0.3s`
-   - Test Coverage: **≥95%** (currently 98%).
+   - Test Coverage: **98%** (exceeds the 80% coverage mandate).
 
 ---
 
-### Scenario 2: Client Interface Verification
-**Objective**: Confirm all documented methods are available and callable.
+## 3. Manual Testing Walkthrough (Step-by-Step) 🧪
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `register_app(...)` | `POST /api/v1/apps/register` | Registers host app with superuser admin token. |
-| `get_me()` | `GET /api/v1/apps/me` | Validates active tenant token and returns app metadata. |
-| `list_knowledge_bases()` | `GET /api/v1/apps/knowledge-bases` | Retrieves accessible Knowledge Bases. |
-| `create_knowledge_base(...)` | `POST /api/v1/apps/knowledge-bases` | Creates a new Knowledge Base. |
-| `submit_upload_job(...)` | `POST /api/v1/apps/jobs` | Sends multipart PDF file and metadata for chunking. |
-| `submit_chat_job(...)` | `POST /api/v1/apps/jobs` | Submits natural language question to RAG engine. |
-| `delete_document(...)` | `DELETE /api/v1/apps/.../documents/...` | Purges document from Knowledge Base. |
+You can test `AkvoRAGClient` manually from your host machine or directly inside the running CKAN Docker container.
+
+### Method A: Interactive Python Shell inside Docker (Recommended)
+
+1. Open an interactive Python shell inside the CKAN container:
+   ```bash
+   docker compose exec -it ckan python
+   ```
+
+2. Import the client and initialize it:
+   ```python
+   from ckanext.akvorag.client import AkvoRAGClient, AkvoRAGError
+
+   # Initialize client (uses https://akvo.ngrok.dev by default)
+   client = AkvoRAGClient(base_url="https://akvo.ngrok.dev", app_token="your_app_token_here")
+   print("Client initialized:", client.base_url)
+   ```
+
+3. **Test App Registration** (if you have the superuser admin token):
+   ```python
+   registration = client.register_app(
+       app_name="ckan_manual_test",
+       domain="localhost:5000",
+       superuser_token="YOUR_SUPERUSER_ADMIN_TOKEN"
+   )
+   print("Registration Result:", registration)
+   # Client app_token is now automatically set to the returned access_token
+   print("Active App Token:", client.app_token)
+   ```
+
+4. **Test Token Validation (`/me`)**:
+   ```python
+   me = client.get_me()
+   print("Current App Status:", me)
+   # Expected: {"app_id": "...", "app_name": "...", "status": "active", ...}
+   ```
+
+5. **Test Listing Knowledge Bases**:
+   ```python
+   kbs = client.list_knowledge_bases()
+   print("Accessible Knowledge Bases:", kbs)
+   ```
+
+6. **Test Document Upload Job**:
+   ```python
+   # Create a dummy test PDF inside the container
+   with open("/tmp/test_report.pdf", "wb") as f:
+       f.write(b"%PDF-1.4 test document content for QA manual verification")
+
+   # Submit upload job
+   upload_job = client.submit_upload_job(
+       file_path="/tmp/test_report.pdf",
+       filename="test_report.pdf",
+       kb_id=101,  # Use your target KB ID
+       callback_params={"test_source": "manual_qa"}
+   )
+   print("Upload Job Submitted:", upload_job)
+   # Expected: {"job_id": "job_...", "status": "PENDING" or "SUBMITTED"}
+   ```
+
+7. **Test Chat / Question Answering Job**:
+   ```python
+   chat_job = client.submit_chat_job(
+       prompt="What is this test document about?",
+       kb_ids=[101]
+   )
+   print("Chat Response:", chat_job)
+   ```
+
+8. **Test Document Deletion**:
+   ```python
+   delete_result = client.delete_document(kb_id=101, document_id="doc_example_id")
+   print("Delete Result:", delete_result)
+   ```
 
 ---
 
-### Scenario 3: Exception Class Mapping
-**Objective**: Verify HTTP status codes are translated into domain-specific exceptions.
+### Method B: One-Liner Quick Health Check from Terminal
+
+Run this quick command to verify the library imports and validates parameters cleanly:
+
+```bash
+docker compose exec -T ckan python -c "
+from ckanext.akvorag.client import AkvoRAGClient
+client = AkvoRAGClient(base_url='https://akvo.ngrok.dev')
+print('✅ AkvoRAGClient initialized successfully for:', client.base_url)
+"
+```
+
+---
+
+## 4. Exception Class Mapping
 
 | HTTP Status | Exception Class | Verified Test |
 | :--- | :--- | :--- |
@@ -48,10 +125,11 @@ This QA Guide outlines the verification procedure for **Issue #4** ([`002_akvo_r
 
 ---
 
-## 3. QA Sign-Off Checklist
+## 5. QA Sign-Off Checklist
 
 - [ ] Automated test suite runs with 0 failures (`13/13 passed`).
 - [ ] Code coverage gate achieved (98% ≥ 80%).
+- [ ] Manual interactive Python shell test succeeds in container.
 - [ ] Superuser token registration handles `Authorization: Bearer <SUPERUSER_TOKEN>`.
 - [ ] Multipart upload correctly streams PDF files with `job: upload` JSON payload.
 - [ ] Deletion endpoint correctly maps document ID and KB ID.
