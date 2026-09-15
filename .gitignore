@@ -66,4 +66,4 @@ htmlcov/
 
 .agent/
 agent_docs/
-.agent/
+task.md
