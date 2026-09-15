@@ -1,0 +1,89 @@
+services:
+  ckan:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    platform: linux/amd64
+    container_name: ckan_web
+    restart: unless-stopped
+    ports:
+      - "${CKAN_PORT:-5000}:5000"
+    environment:
+      - CKAN_SITE_URL=${CKAN_SITE_URL:-http://localhost:5000}
+      - CKAN_PORT=5000
+      - CKAN_SQLALCHEMY_URL=postgresql://${POSTGRES_USER:-ckan_default}:${POSTGRES_PASSWORD:-ckan_password}@db:5432/${POSTGRES_DB:-ckan_default}
+      - CKAN_DATASTORE_WRITE_URL=postgresql://${POSTGRES_USER:-ckan_default}:${POSTGRES_PASSWORD:-ckan_password}@db:5432/${DATASTORE_DB:-datastore_default}
+      - CKAN_DATASTORE_READ_URL=postgresql://${DATASTORE_READ_USER:-datastore_default}:${DATASTORE_READ_PASSWORD:-datastore_password}@db:5432/${DATASTORE_DB:-datastore_default}
+      - CKAN_SOLR_URL=http://solr:8983/solr/ckan
+      - CKAN_REDIS_URL=redis://redis:6379/1
+      - CKAN_STORAGE_PATH=/var/lib/ckan
+      - CKAN_MAX_UPLOAD_SIZE_MB=50
+      - CKAN_PLUGINS=stats text_view image_view recline_view datastore akvorag
+      - AKVO_RAG_BASE_URL=${AKVO_RAG_BASE_URL:-https://akvo.ngrok.dev}
+      - AKVO_RAG_APP_TOKEN=${AKVO_RAG_APP_TOKEN:-}
+      - AKVO_RAG_KNOWLEDGE_BASE_ID=${AKVO_RAG_KNOWLEDGE_BASE_ID:-}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-ckan_default}
+    volumes:
+      - .:/srv/app/src_extensions/ckanext-akvorag:rw
+      - ckan_storage:/var/lib/ckan
+    depends_on:
+      db:
+        condition: service_healthy
+      solr:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  db:
+    image: postgres:14-alpine
+    container_name: ckan_db
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-ckan_default}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ckan_password}
+      - POSTGRES_DB=${POSTGRES_DB:-ckan_default}
+    volumes:
+      - ckan_db:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ckan_default}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  solr:
+    image: ckan/ckan-solr:2.10
+    platform: linux/amd64
+    container_name: ckan_solr
+    restart: unless-stopped
+    ports:
+      - "${SOLR_PORT:-8983}:8983"
+    volumes:
+      - ckan_solr:/var/solr
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf 'http://localhost:8983/solr/ckan/admin/ping?wt=json' | grep -q '\"status\":\"OK\"' || exit 1"]
+      start_period: 20s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ckan_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - ckan_redis:/data
+
+volumes:
+  ckan_storage:
+  ckan_db:
+  ckan_solr:
+  ckan_redis:
