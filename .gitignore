@@ -63,3 +63,7 @@ lancedb/
 .pytest_cache/
 .coverage
 htmlcov/
+
+.agent/
+agent_docs/
+.agent/
