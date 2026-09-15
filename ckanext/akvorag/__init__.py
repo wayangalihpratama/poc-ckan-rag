@@ -1,0 +1,1 @@
+# ckanext-akvorag namespace package
