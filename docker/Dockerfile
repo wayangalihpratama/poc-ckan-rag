@@ -12,6 +12,9 @@ RUN apk update && \
         musl-dev \
         postgresql-client
 
+# Install testing dependencies
+RUN pip install --no-cache-dir --ignore-installed pytest pytest-cov
+
 # Set working directory for extensions
 WORKDIR /srv/app
 
