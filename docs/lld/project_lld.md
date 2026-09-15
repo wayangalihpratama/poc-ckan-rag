@@ -1,0 +1,152 @@
+# Project LLD: CKAN to Akvo RAG Knowledgebase Sync & AI Assistant
+
+## 1. System Architecture & Topology
+
+```mermaid
+flowchart TD
+    subgraph HostApp["1. Local CKAN (Docker Environment)"]
+        direction TB
+        CKAN_UI["CKAN Web UI & Portal"]
+        CKAN_EXT["ckanext-akvorag (Plugin)"]
+        CKAN_FS["CKAN Filestore (PDF Documents)"]
+        
+        CKAN_UI -->|"Document Upload / Delete"| CKAN_EXT
+        CKAN_EXT -->|"Fetch File"| CKAN_FS
+    end
+
+    subgraph ChatFrontend["2. AI Chat Frontend"]
+        WIDGET["akvo-rag-js Chat Widget<br/>(Embedded in CKAN)"]
+    end
+
+    subgraph Tunnel["3. Public HTTPS Gateway"]
+        NGROK["ngrok Tunnel<br/>(https://akvo.ngrok.dev)"]
+    end
+
+    subgraph AkvoRAG["4. Akvo RAG Platform (~/Sites/akvo-rag)"]
+        direction TB
+        RAG_API["Akvo RAG /api/v1/apps API<br/>(Tenant Token Auth)"]
+        RAG_WORKER["Ingestion & Embedding Worker"]
+        CHROMA[("ChromaDB Vector Store<br/>+ MinIO Document Storage")]
+
+        RAG_API -->|"Process Upload Job"| RAG_WORKER
+        RAG_WORKER -->|"Store Embeddings"| CHROMA
+    end
+
+    %% Cross-layer connections
+    CKAN_EXT -->|"REST API Jobs & Sync (Bearer tok_...)"| NGROK
+    WIDGET -->|"Interactive Chat Stream"| NGROK
+    CKAN_UI -.->|"Mounts & Renders"| WIDGET
+    NGROK -->|"Forward to Port 8000"| RAG_API
+```
+
+---
+
+## 2. Sequence Diagrams
+
+### 2.1 App Registration (One-time Setup)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as Admin / Setup CLI
+    participant Ext as ckanext-akvorag (CLI)
+    participant RAG as Akvo RAG (https://akvo.ngrok.dev)
+
+    Admin->>Ext: Run `ckan akvorag register`
+    Note over Ext,RAG: Uses AKVO_RAG_SUPERUSER_TOKEN for authorization
+    Ext->>RAG: POST /api/v1/apps/register (app_name: "ckan_portal", domain: "localhost:5000")
+    RAG-->>Ext: Returns access_token (tok_...) & default knowledge_base_id
+    Ext->>Ext: Persist credentials to CKAN config (ckan.ini / env)
+```
+
+### 2.2 Document Upload & Lifecycle Sync
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as CKAN User
+    participant CKAN as CKAN Web & Filestore
+    participant Ext as ckanext-akvorag (IResourceController)
+    participant RAG as Akvo RAG (https://akvo.ngrok.dev)
+    participant Worker as Vector Worker & ChromaDB
+
+    User->>CKAN: Upload PDF resource (e.g. water_quality.pdf)
+    CKAN->>Ext: after_resource_create(data_dict)
+    Ext->>Ext: Check if format/mimetype == "pdf"
+    Ext->>RAG: POST /api/v1/apps/jobs (job: "upload", Bearer tok_..., file=@water_quality.pdf)
+    RAG->>Worker: Parse PDF, Chunk text, Generate Embeddings
+    Worker-->>RAG: Store in ChromaDB
+    RAG-->>Ext: Webhook / Async status (COMPLETED)
+
+    opt Document Deletion
+        User->>CKAN: Delete resource / dataset
+        CKAN->>Ext: after_resource_delete(data_dict)
+        Ext->>RAG: DELETE /api/v1/apps/knowledge-bases/{kb_id}/documents/{doc_id}
+        RAG->>Worker: Purge vectors matching resource_id from ChromaDB
+    end
+```
+
+### 2.3 AI Chat Interaction (`akvo-rag-js`)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Portal User
+    participant Widget as akvo-rag-js Widget (Embedded in CKAN)
+    participant RAG as Akvo RAG (https://akvo.ngrok.dev)
+
+    User->>Widget: Ask question: "What are the latest water quality findings?"
+    Widget->>RAG: Stream Chat Query (Knowledge Base ID + Prompt)
+    RAG-->>Widget: Streamed Answer with Citations & Source Document links
+    Widget-->>User: Display formatted response with highlighted citations
+```
+
+---
+
+## 3. Component Details & Data Contracts
+
+### 3.1 CKAN Plugin (`ckanext/akvorag/plugin.py`)
+- Implements: `IResourceController`, `IPackageController`, `IConfigurer`, `ITemplateHelpers`.
+- Hook definitions:
+  - `after_resource_create(context, data_dict)`
+  - `after_resource_update(context, data_dict)`
+  - `after_resource_delete(context, data_dict)`
+  - `after_package_delete(context, data_dict)`
+
+### 3.2 Akvo RAG Client (`ckanext/akvorag/client.py`)
+- Encapsulates `/api/v1/apps` REST interactions:
+  - `register_app(app_name, domain, superuser_token)` ➔ `tok_...`, `knowledge_base_id`
+  - `submit_upload_job(file_path, filename, callback_params)` ➔ `job_id`
+  - `delete_document(kb_id, document_id)` ➔ status
+  - `get_me()` ➔ app status
+
+### 3.3 CLI Interface (`ckanext/akvorag/cli.py`)
+- `ckan akvorag register`: Registers the host application.
+- `ckan akvorag status`: Checks connection and KB configuration.
+- `ckan akvorag sync-all`: Bulk-scans existing PDF resources.
+
+### 3.4 Frontend Integration (`akvo-rag-js`)
+- Embedded in CKAN layout via Jinja template extension (`ckanext/akvorag/templates/`).
+- Initialized with target Knowledge Base ID and public endpoint URL.
+
+---
+
+## 4. Verification & Testing Strategy
+
+### 4.1 Automated Test Suite
+- `pytest tests/test_client.py`: Unit tests mocking Akvo RAG `/api/v1/apps` responses.
+- `pytest tests/test_plugin.py`: Unit tests for `IResourceController` hook execution.
+- `pytest tests/test_cli.py`: Click CLI runner tests.
+
+### 4.2 End-to-End Verification
+- Complete verification loop: Start ngrok ➔ Register CKAN app ➔ Upload PDF ➔ Verify vector chunking in Akvo RAG ➔ Query via `akvo-rag-js` ➔ Delete PDF in CKAN ➔ Verify vector purge.
+
+---
+
+## 5. Implementation Task Mapping
+
+| Task ID | Implementation Area | Touchpoint Files / Deliverables |
+| :--- | :--- | :--- |
+| **TASK-01** | Local CKAN Docker Environment | `docker-compose.yml`, `Dockerfile`, `.env.example`, `ckan.ini` |
+| **TASK-02** | Akvo RAG Client Library | `ckanext/akvorag/client.py`, `tests/test_client.py` |
+| **TASK-03** | Core CKAN Plugin Hooks | `ckanext/akvorag/plugin.py`, `tests/test_plugin.py` |
+| **TASK-04** | CKAN Click CLI Commands | `ckanext/akvorag/cli.py`, `tests/test_cli.py` |
+| **TASK-05** | `akvo-rag-js` UI Embedding | `ckanext/akvorag/templates/`, `ckanext/akvorag/fanstatic/` |
+| **TASK-06** | End-to-End Verification | End-to-end integration test & verification runbook |
