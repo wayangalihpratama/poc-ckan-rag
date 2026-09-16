@@ -1,0 +1,55 @@
+name: CI Test Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Automated Tests & Coverage Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Start Services
+        run: |
+          docker compose up -d --build
+          docker compose ps
+
+      - name: Wait for CKAN Service Readiness
+        run: |
+          echo "Waiting for CKAN container to finish initialization..."
+          for i in {1..60}; do
+            if docker compose exec -T ckan ckan --version &>/dev/null; then
+              echo "CKAN CLI is responsive!"
+              break
+            fi
+            echo "Waiting for CKAN service ($i/60)..."
+            sleep 2
+          done
+
+      - name: Run Automated Test Suite & Coverage Gate
+        run: |
+          chmod +x run_tests.sh
+          ./run_tests.sh
+
+      - name: Dump Container Logs on Failure
+        if: failure()
+        run: |
+          docker compose logs --tail=100 ckan
+
+      - name: Cleanup Services
+        if: always()
+        run: docker compose down -v

@@ -19,7 +19,7 @@ sequenceDiagram
     participant Ngrok as ngrok (https://akvo.ngrok.dev)
     participant CKAN as Local CKAN (Docker)
     participant Plugin as ckanext-akvorag
-    participant RAG as Akvo RAG (~/Sites/akvo-rag)
+    participant RAG as Akvo RAG Backend
     participant Chroma as ChromaDB Vector Store
 
     Note over Tester,Chroma: Step 1: Tunnel & Registration
@@ -65,14 +65,14 @@ sequenceDiagram
 ## 2. Verification Runbook Steps
 
 ```bash
-# 1. Start Akvo RAG
-cd ~/Sites/akvo-rag && ./dc.sh up -d
+# 1. Start Akvo RAG (in your akvo-rag repository)
+./dc.sh up -d
 
 # 2. Expose via Ngrok
 ngrok http 8000 --url=akvo.ngrok.dev
 
 # 3. Start CKAN
-cd /Users/galihpratama/Dev/poc-ckan-rag && docker compose up -d
+docker compose up -d
 
 # 4. Run E2E Verification Script
 pytest tests/e2e_verification.py -v

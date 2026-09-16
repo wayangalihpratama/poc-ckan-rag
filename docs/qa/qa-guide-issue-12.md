@@ -10,7 +10,7 @@ sequenceDiagram
     participant Ngrok as ngrok (https://akvo.ngrok.dev)
     participant CKAN as Local CKAN (Docker)
     participant Plugin as ckanext-akvorag
-    participant RAG as Akvo RAG (~/Sites/akvo-rag)
+    participant RAG as Akvo RAG Backend
     participant Chroma as ChromaDB Vector Store
 
     Note over Tester,Chroma: 1. Tunnel & Host App Registration
@@ -70,9 +70,8 @@ sequenceDiagram
 Follow these steps to perform live verification of the complete stack.
 
 ### Step 1: Start Akvo RAG Backend
-In your Akvo RAG project directory:
+In your local `akvo-rag` project directory:
 ```bash
-cd ~/Sites/akvo-rag
 ./dc.sh up -d
 ```
 

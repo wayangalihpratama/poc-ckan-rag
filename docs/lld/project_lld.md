@@ -22,7 +22,7 @@ flowchart TD
         NGROK["ngrok Tunnel<br/>(https://akvo.ngrok.dev)"]
     end
 
-    subgraph AkvoRAG["4. Akvo RAG Platform (~/Sites/akvo-rag)"]
+    subgraph AkvoRAG["4. Akvo RAG Platform (Backend)"]
         direction TB
         RAG_API["Akvo RAG /api/v1/apps API<br/>(Tenant Token Auth)"]
         RAG_WORKER["Ingestion & Embedding Worker"]

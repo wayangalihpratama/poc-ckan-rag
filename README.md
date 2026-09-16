@@ -1,6 +1,7 @@
 # CKAN to Akvo RAG Knowledgebase Integration PoC 🚀
 
-[![Tests](https://img.shields.io/badge/tests-48%20passed-brightgreen.svg)]()
+[![CI](https://github.com/wayangalihpratama/poc-ckan-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/wayangalihpratama/poc-ckan-rag/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-52%20passed-brightgreen.svg)]()
 [![Coverage](https://img.shields.io/badge/coverage-92%25-brightgreen.svg)]()
 [![CKAN](https://img.shields.io/badge/CKAN-2.10.4-blue.svg)](https://ckan.org)
 [![Akvo RAG](https://img.shields.io/badge/Akvo%20RAG-Multi--Tenant-orange.svg)](https://github.com/akvo)
@@ -15,12 +16,13 @@ This repository is the official Proof of Concept (PoC) demonstrating **automated
 flowchart LR
     subgraph Host["User Browser"]
         UI["CKAN Web Portal<br/>(http://localhost:5000)"]
-        WIDGET["akvo-rag-js<br/>AI Chat Widget"]
+        WIDGET["akvo-rag-js<br/>AI Chat Widget (WebSocket)"]
     end
 
     subgraph CKAN_Docker["CKAN 2.10 Stack (Docker)"]
         CORE["CKAN Core"]
         PLUGIN["ckanext-akvorag<br/>(Hooks & CLI)"]
+        NPM["npm asset vendoring<br/>(akvo-rag-js dist)"]
         POSTGRES["PostgreSQL 14"]
         SOLR["Apache Solr 8"]
         REDIS["Redis 7"]
@@ -30,17 +32,19 @@ flowchart LR
         NGROK["ngrok Tunnel<br/>(https://akvo.ngrok.dev)"]
     end
 
-    subgraph RAG_Platform["Akvo RAG Platform (~/Sites/akvo-rag)"]
+    subgraph RAG_Platform["Akvo RAG Platform (Backend)"]
         API["FastAPI /api/v1/apps"]
+        WS["WebSocket Server (/ws/chat)"]
         WORKER["Job Worker (Upload/Chat)"]
         CHROMA["ChromaDB Vector Store"]
     end
 
     UI --> CORE
     CORE --> PLUGIN
+    NPM -.->|"vendor assets"| WIDGET
     PLUGIN -->|"POST /jobs (PDF Upload)"| NGROK
     PLUGIN -->|"DELETE /documents"| NGROK
-    WIDGET -->|"Chat Stream & Citations"| NGROK
+    WIDGET -->|"wss://akvo.ngrok.dev/ws/chat<br/>(Real-Time Streaming)"| WS
     NGROK --> API
     API --> WORKER
     WORKER --> CHROMA
@@ -51,9 +55,9 @@ flowchart LR
 ## 🛠️ Prerequisites
 
 1. **Docker & Docker Compose** installed.
-2. **Akvo RAG** running locally (`cd ~/Sites/akvo-rag && ./dc.sh up -d`).
+2. **Akvo RAG** running locally (in your `akvo-rag` project directory: `./dc.sh up -d`).
 3. **Ngrok tunnel** exposing Akvo RAG (`ngrok http 8000 --url=akvo.ngrok.dev`).
-4. **Akvo RAG Admin/User JWT Token** (from `~/Sites/akvo-rag/.env` or user login).
+4. **Akvo RAG Admin/User JWT Token** (from your `akvo-rag` environment or auth endpoint).
 
 ---
 
@@ -178,12 +182,36 @@ When you delete a PDF resource or an entire dataset from CKAN:
 
 ---
 
-## 🧪 Automated Testing
+## 📦 Frontend Asset Management (`akvo-rag-js`)
 
-Execute the comprehensive test suite (48 tests, 92% coverage):
+The extension tracks the official [`akvo-rag-js`](https://github.com/akvo/akvo-rag-js) NPM package:
+- **`package.json`**: Declares `"akvo-rag-js": "^1.2.2"`.
+- **Vendoring Script**: `npm run build:assets` copies compiled bundle assets (`akvo-rag.js`, `akvo-rag.css`, and fonts) to `ckanext/akvorag/public/`.
+- **Docker Auto-Build**: The Docker container automatically runs `npm install` and `npm run build:assets` during startup.
+
+```bash
+# Install / update NPM package
+npm install
+
+# Re-vendor assets into CKAN public directory
+npm run build:assets
+```
+
+---
+
+## 🧪 Automated Testing & CI/CD
+
+### Local Execution
+Execute the full test suite (52 tests, 92% coverage) inside the isolated container environment:
 ```bash
 ./run_tests.sh
 ```
+
+### GitHub Actions CI Workflow
+Continuous Integration is configured via [`.github/workflows/ci.yml`](.github/workflows/ci.yml). On every `push` and `pull_request` targeting `main`:
+1. Spawns Docker Compose stack.
+2. Waits for service readiness.
+3. Executes `./run_tests.sh` and verifies the minimum **≥80% coverage gate**.
 
 ---
 

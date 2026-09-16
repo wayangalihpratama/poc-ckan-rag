@@ -1,7 +1,7 @@
 # Project PRD: CKAN to Akvo RAG Knowledgebase Sync PoC
 
 ## 1. Executive Summary & Goals
-This Proof of Concept (PoC) establishes an automated, event-driven bridge between **CKAN** (open data and document catalog) and **Akvo RAG** (multi-tenant AI knowledgebase platform located at `~/Sites/akvo-rag`).
+This Proof of Concept (PoC) establishes an automated, event-driven bridge between **CKAN** (open data and document catalog) and **Akvo RAG** (multi-tenant AI knowledgebase platform).
 
 ### Primary Objectives:
 1. **Automated Knowledge Ingestion**: Automatically detect when PDF documents are uploaded or updated in CKAN, and stream them into an Akvo RAG Knowledge Base.
@@ -74,7 +74,7 @@ flowchart TD
 ## 5. Epic & Vibe Coding Estimation Breakdown ⏱️
 
 - **Confidence Level**: High
-- **Dependencies**: `~/Sites/akvo-rag`, `akvo-rag-js`, Docker & Docker Compose, Ngrok.
+- **Dependencies**: Akvo RAG Backend, `akvo-rag-js`, Docker & Docker Compose, Ngrok.
 
 | Task ID | Component & Description | Vibe Coding (Dev) | Automated Testing | QA & Review | Total Est. Time | Priority |
 | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
