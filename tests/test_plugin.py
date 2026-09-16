@@ -151,3 +151,11 @@ def test_update_config():
         mock_add_tmpl.assert_called_once()
         mock_add_pub.assert_called_once()
         mock_add_res.assert_called_once()
+
+
+def test_get_commands():
+    plugin = AkvoRAGPlugin()
+    cmds = plugin.get_commands()
+    assert len(cmds) == 1
+    assert cmds[0].name == "akvorag"
+

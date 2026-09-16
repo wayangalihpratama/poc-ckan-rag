@@ -97,8 +97,17 @@ class AkvoRAGPlugin(plugins.SingletonPlugin, toolkit.DefaultDatasetForm):
     """
 
     plugins.implements(plugins.IConfigurer)
+    plugins.implements(plugins.IClick)
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IPackageController, inherit=True)
+
+    # ------------------------------------------------------------------
+    # IClick
+    # ------------------------------------------------------------------
+    def get_commands(self):
+        """Register click CLI command groups for Akvo RAG."""
+        from ckanext.akvorag.cli import akvorag
+        return [akvorag]
 
     # ------------------------------------------------------------------
     # IConfigurer
