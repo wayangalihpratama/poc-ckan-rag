@@ -186,20 +186,59 @@ def test_submit_chat_job_success(mock_post, client):
     mock_post.assert_called_once()
 
 
+@patch("requests.get")
+def test_list_documents_success(mock_get, client):
+    mock_response = MagicMock(spec=requests.Response)
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "total": 2,
+        "data": [
+            {"id": 1, "file_name": "report.pdf"},
+            {"id": 2, "file_name": "data.pdf"},
+        ],
+    }
+    mock_get.return_value = mock_response
+
+    res = client.list_documents(kb_id=101, search="report.pdf")
+    assert len(res) == 2
+    assert res[0]["file_name"] == "report.pdf"
+    mock_get.assert_called_once_with(
+        "https://akvo.ngrok.dev/api/v1/apps/documents",
+        params={"kb_id": 101, "search": "report.pdf"},
+        headers={"Accept": "application/json", "Authorization": "Bearer tok_test_12345"},
+        timeout=30,
+    )
+
+
 @patch("requests.delete")
 def test_delete_document_success(mock_delete, client):
     mock_response = MagicMock(spec=requests.Response)
     mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "DELETED", "document_id": "doc_xyz"}
+    mock_response.json.return_value = {"status": "DELETED", "document_id": 244}
     mock_delete.return_value = mock_response
 
-    res = client.delete_document(kb_id=101, document_id="doc_xyz")
+    res = client.delete_document(kb_id=101, doc_id=244)
     assert res["status"] == "DELETED"
     mock_delete.assert_called_once_with(
-        "https://akvo.ngrok.dev/api/v1/apps/knowledge-bases/101/documents/doc_xyz",
+        "https://akvo.ngrok.dev/api/v1/apps/documents",
+        params={"kb_id": 101, "doc_id": 244},
         headers={"Accept": "application/json", "Authorization": "Bearer tok_test_12345"},
         timeout=30,
     )
+
+
+def test_delete_document_by_name(client):
+    with patch.object(client, "list_documents") as mock_list, \
+         patch.object(client, "delete_document") as mock_delete:
+        mock_list.return_value = [
+            {"id": 10, "file_name": "test_report.pdf"},
+            {"id": 20, "file_name": "other_file.pdf"},
+        ]
+        mock_delete.return_value = {"success": True}
+
+        results = client.delete_document_by_name(kb_id=101, filename="test_report.pdf")
+        assert len(results) == 1
+        mock_delete.assert_called_once_with(kb_id=101, doc_id=10)
 
 
 @patch("requests.get")

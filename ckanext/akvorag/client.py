@@ -231,11 +231,53 @@ class AkvoRAGClient:
         response = requests.post(url, data=data, headers=headers, timeout=self.timeout)
         return self._handle_response(response)
 
-    def delete_document(self, kb_id: int, document_id: str) -> Dict[str, Any]:
+    def list_documents(self, kb_id: int, search: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        List documents in a Knowledge Base.
+        Calls GET /api/v1/apps/documents?kb_id={kb_id}&search={search}.
+        """
+        url = f"{self.base_url}/api/v1/apps/documents"
+        params = {"kb_id": kb_id}
+        if search:
+            params["search"] = search
+        response = requests.get(url, params=params, headers=self._get_headers(), timeout=self.timeout)
+        result = self._handle_response(response)
+        if isinstance(result, dict) and "data" in result:
+            return result["data"]
+        elif isinstance(result, list):
+            return result
+        return []
+
+    def delete_document(
+        self,
+        kb_id: int,
+        doc_id: Optional[Union[int, str]] = None,
+        document_id: Optional[Union[int, str]] = None,
+    ) -> Dict[str, Any]:
         """
         Delete a document from a Knowledge Base by document ID.
-        Calls DELETE /api/v1/apps/knowledge-bases/{kb_id}/documents/{document_id}.
+        Calls DELETE /api/v1/apps/documents?kb_id={kb_id}&doc_id={doc_id}.
         """
-        url = f"{self.base_url}/api/v1/apps/knowledge-bases/{kb_id}/documents/{document_id}"
-        response = requests.delete(url, headers=self._get_headers(), timeout=self.timeout)
+        target_id = doc_id if doc_id is not None else document_id
+        if target_id is None:
+            raise AkvoRAGValidationError("Missing required document ID for deletion.")
+        url = f"{self.base_url}/api/v1/apps/documents"
+        params = {"kb_id": kb_id, "doc_id": target_id}
+        response = requests.delete(url, params=params, headers=self._get_headers(), timeout=self.timeout)
         return self._handle_response(response)
+
+    def delete_document_by_name(self, kb_id: int, filename: str) -> List[Dict[str, Any]]:
+        """
+        Find and delete documents from a Knowledge Base matching a filename.
+        """
+        clean_name = os.path.basename(filename).strip()
+        docs = self.list_documents(kb_id=kb_id, search=clean_name)
+        results = []
+        for doc in docs:
+            doc_filename = os.path.basename(doc.get("file_name", "")).strip()
+            if doc_filename.lower() == clean_name.lower() or doc_filename.lower().endswith(clean_name.lower()):
+                doc_id = doc.get("id")
+                if doc_id is not None:
+                    res = self.delete_document(kb_id=kb_id, doc_id=doc_id)
+                    results.append(res)
+        return results

@@ -189,20 +189,61 @@ class AkvoRAGPlugin(plugins.SingletonPlugin, toolkit.DefaultDatasetForm):
             return
 
         res_id = data_dict.get("id")
-        if not res_id:
-            return
+        name = data_dict.get("name") or data_dict.get("url") or ""
+        filename = os.path.basename(name).strip() if name else ""
 
         try:
-            logger.info("Purging resource %s from Akvo RAG Knowledge Base %s", res_id, kb_id)
-            client.delete_document(kb_id=kb_id, document_id=res_id)
+            logger.info("Purging resource %s (%s) from Akvo RAG Knowledge Base %s", res_id, filename, kb_id)
+            if filename:
+                if not filename.lower().endswith(".pdf"):
+                    filename = f"{filename}.pdf"
+                client.delete_document_by_name(kb_id=kb_id, filename=filename)
+            elif res_id:
+                client.delete_document(kb_id=kb_id, doc_id=res_id)
         except (AkvoRAGError, Exception) as e:
-            logger.error("Failed to delete document %s from Akvo RAG: %s", res_id, str(e))
+            logger.error("Failed to delete document %s from Akvo RAG: %s", res_id or filename, str(e))
 
     # ------------------------------------------------------------------
     # IPackageController Hooks
     # ------------------------------------------------------------------
-    def after_package_delete(self, context: Dict[str, Any], data_dict: Dict[str, Any]):
-        """Triggered after an entire dataset package is deleted."""
+    def delete(self, entity: Any):
+        """
+        CKAN IPackageController hook triggered when a package is deleted.
+        entity is the SQLAlchemy Package object containing resources.
+        """
+        client = get_akvorag_client()
+        kb_id = get_configured_kb_id()
+        if not client or not kb_id:
+            return
+
+        resources = getattr(entity, "resources", []) or []
+        for resource in resources:
+            try:
+                raw_format = getattr(resource, "format", "")
+                raw_name = getattr(resource, "name", "")
+                raw_url = getattr(resource, "url", "")
+
+                res_format = raw_format.lower() if isinstance(raw_format, str) else ""
+                res_name = raw_name if isinstance(raw_name, str) else ""
+                res_url = raw_url if isinstance(raw_url, str) else ""
+
+                if res_format == "pdf" or res_name.lower().endswith(".pdf") or res_url.lower().endswith(".pdf"):
+                    filename = res_name or res_url
+                    filename = os.path.basename(filename).strip()
+                    if filename:
+                        if not filename.lower().endswith(".pdf"):
+                            filename = f"{filename}.pdf"
+                        logger.info("Purging package resource %s from Akvo RAG KB %s", filename, kb_id)
+                        client.delete_document_by_name(kb_id=kb_id, filename=filename)
+            except (AkvoRAGError, Exception) as e:
+                logger.error("Failed to delete package resource from Akvo RAG: %s", str(e))
+
+    def after_dataset_delete(self, context: Dict[str, Any], data_dict: Dict[str, Any]):
+        """Triggered after an entire dataset package is deleted in CKAN 2.9+."""
         resources = data_dict.get("resources") or []
         for resource in resources:
             self.after_resource_delete(context, resource)
+
+    def after_package_delete(self, context: Dict[str, Any], data_dict: Dict[str, Any]):
+        """Fallback alias for dataset deletion."""
+        self.after_dataset_delete(context, data_dict)

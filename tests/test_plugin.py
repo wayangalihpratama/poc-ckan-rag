@@ -112,7 +112,20 @@ def test_after_resource_create_csv_ignored(mock_get_client):
 
 @patch("ckanext.akvorag.plugin.get_akvorag_client")
 @patch("ckanext.akvorag.plugin.get_configured_kb_id")
-def test_after_resource_delete(mock_get_kb, mock_get_client):
+def test_after_resource_delete_with_filename(mock_get_kb, mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_get_kb.return_value = 101
+
+    plugin = AkvoRAGPlugin()
+    plugin.after_resource_delete(context={}, data_dict={"id": "res_001", "name": "Report.pdf"})
+
+    mock_client.delete_document_by_name.assert_called_once_with(kb_id=101, filename="Report.pdf")
+
+
+@patch("ckanext.akvorag.plugin.get_akvorag_client")
+@patch("ckanext.akvorag.plugin.get_configured_kb_id")
+def test_after_resource_delete_with_only_id(mock_get_kb, mock_get_client):
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
     mock_get_kb.return_value = 101
@@ -120,12 +133,33 @@ def test_after_resource_delete(mock_get_kb, mock_get_client):
     plugin = AkvoRAGPlugin()
     plugin.after_resource_delete(context={}, data_dict={"id": "res_001"})
 
-    mock_client.delete_document.assert_called_once_with(kb_id=101, document_id="res_001")
+    mock_client.delete_document.assert_called_once_with(kb_id=101, doc_id="res_001")
 
 
 @patch("ckanext.akvorag.plugin.get_akvorag_client")
 @patch("ckanext.akvorag.plugin.get_configured_kb_id")
-def test_after_package_delete(mock_get_kb, mock_get_client):
+def test_delete_entity_package(mock_get_kb, mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_get_kb.return_value = 101
+
+    plugin = AkvoRAGPlugin()
+    mock_entity = MagicMock()
+    res1 = MagicMock()
+    res1.format = "pdf"
+    res1.name = "annual_report.pdf"
+    res2 = MagicMock()
+    res2.format = "csv"
+    res2.name = "data.csv"
+    mock_entity.resources = [res1, res2]
+
+    plugin.delete(mock_entity)
+    mock_client.delete_document_by_name.assert_called_once_with(kb_id=101, filename="annual_report.pdf")
+
+
+@patch("ckanext.akvorag.plugin.get_akvorag_client")
+@patch("ckanext.akvorag.plugin.get_configured_kb_id")
+def test_after_dataset_and_package_delete(mock_get_kb, mock_get_client):
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
     mock_get_kb.return_value = 101
@@ -133,12 +167,14 @@ def test_after_package_delete(mock_get_kb, mock_get_client):
     plugin = AkvoRAGPlugin()
     package_dict = {
         "id": "pkg_001",
-        "resources": [{"id": "res_001"}, {"id": "res_002"}],
+        "resources": [{"id": "res_001", "name": "doc1.pdf"}, {"id": "res_002", "name": "doc2.pdf"}],
     }
 
-    plugin.after_package_delete(context={}, data_dict=package_dict)
+    plugin.after_dataset_delete(context={}, data_dict=package_dict)
+    assert mock_client.delete_document_by_name.call_count == 2
 
-    assert mock_client.delete_document.call_count == 2
+    plugin.after_package_delete(context={}, data_dict=package_dict)
+    assert mock_client.delete_document_by_name.call_count == 4
 
 
 def test_update_config():

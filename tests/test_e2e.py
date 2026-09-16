@@ -170,7 +170,7 @@ def test_e2e_plugin_hooks_and_cli_integration(sample_pdf_path):
 
         # 2. Trigger after_resource_delete hook
         plugin.after_resource_delete(context={}, data_dict=resource_data)
-        mock_client.delete_document.assert_called_once_with(kb_id=301, document_id="res_e2e_pdf_01")
+        mock_client.delete_document_by_name.assert_called_once_with(kb_id=301, filename="sample_water_report.pdf")
 
 
 def test_e2e_resilience_and_graceful_degradation():
