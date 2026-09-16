@@ -44,6 +44,34 @@ The primary requirement in data portals (like CKAN) is **lifecycle trigger synch
 | **4. Bulk / Cascade Dataset Delete** | Must execute $2 \times N$ API calls to OpenAI per resource in the dataset, subject to external API rate limits. | CKAN `IPackageController.delete` hook purges all dataset resources locally across Postgres & ChromaDB in <50ms. | **Option B (Akvo RAG)**<br>Fast, reliable cascade deletion. |
 | **5. Error Handling & Rate Limits** | External HTTP failures, OpenAI upload timeouts (504), or rate limits (429) can leave orphaned vector files. | Handled in local Redis queue with native retries and transactional rollbacks. | **Option B (Akvo RAG)**<br>Fault-tolerant & resilient. |
 
+### CKAN Extension Lifecycle Hooks Implemented
+
+The `ckanext-akvorag` plugin leverages native CKAN plugin interfaces to handle background lifecycle synchronization and UI embedding:
+
+```mermaid
+flowchart LR
+    subgraph CKAN["CKAN Portal"]
+        User(["User / Admin"]) -->|"1. Uploads / Deletes PDF"| Hooks["ckanext-akvorag<br/>(Lifecycle Hooks)"]
+        User -->|"3. Asks Questions"| Widget["akvo-rag-js Widget<br/>(Embedded UI)"]
+    end
+
+    subgraph AkvoRAG["Akvo RAG Platform"]
+        Hooks -->|"2. Sync / Purge (REST API)"| Engine["Akvo RAG Engine<br/>(FastAPI / Redis)"]
+        Engine --> Storage[("ChromaDB & MinIO<br/>(Vectors & Documents)")]
+        Widget <-->|"4. Stream Q&A (WebSocket)"| Engine
+    end
+```
+
+| CKAN Interface | Hook Method | Trigger Scenario | Akvo RAG Action / API |
+| :--- | :--- | :--- | :--- |
+| **`IResourceController`** | `after_resource_create` | PDF file uploaded to resource | Dispatches non-blocking async ingestion job (`POST /api/v1/apps/jobs`). |
+| **`IResourceController`** | `after_resource_update` | Resource file replaced/edited | Re-indexes file in Akvo RAG with updated metadata and embeddings. |
+| **`IResourceController`** | `before_resource_delete` | Individual resource deleted | Executes instant transactional purge (`DELETE /api/v1/apps/documents`). |
+| **`IPackageController`** | `delete(entity)` | Entire dataset (package) deleted | Iterates through attached resources and purges vectors from Akvo RAG. |
+| **`ITemplateHelpers`** | `get_helpers()` | CKAN Jinja page rendering | Injects KB ID, WebSocket endpoint, and widget config into templates. |
+| **`IConfigurer`** | `update_config()` | CKAN startup | Registers custom Jinja templates and `akvo-rag-js` frontend bundle. |
+| **`IClick`** | `get_commands()` | CKAN CLI execution | Registers `ckan akvorag [register\|status\|sync-all]` management commands. |
+
 ```mermaid
 sequenceDiagram
     autonumber
