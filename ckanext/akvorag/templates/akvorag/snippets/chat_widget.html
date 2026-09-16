@@ -14,6 +14,12 @@
           wsURL: "{{ h.akvorag_get_ws_url() }}",
           autoReconnect: true
         });
+
+        // Keep chatbot widget minimized/closed by default
+        var widget = document.getElementById('akvo-rag');
+        if (widget) {
+          widget.classList.add('minimized');
+        }
       }
     }
 

@@ -192,19 +192,33 @@ class AkvoRAGPlugin(plugins.SingletonPlugin, toolkit.DefaultDatasetForm):
             return
 
         res_id = resource_dict.get("id")
-        name = resource_dict.get("name") or resource_dict.get("url") or ""
-        filename = os.path.basename(name).strip() if name else ""
+        candidates = [
+            resource_dict.get("name"),
+            resource_dict.get("url"),
+            resource_dict.get("upload"),
+        ]
 
-        try:
-            logger.info("Purging resource %s (%s) from Akvo RAG Knowledge Base %s", res_id, filename, kb_id)
-            if filename:
-                if not filename.lower().endswith(".pdf"):
-                    filename = f"{filename}.pdf"
-                client.delete_document_by_name(kb_id=kb_id, filename=filename)
-            elif res_id:
+        deleted = False
+        for cand in candidates:
+            if cand and isinstance(cand, str):
+                filename = os.path.basename(cand).strip()
+                if filename:
+                    if not filename.lower().endswith(".pdf"):
+                        filename = f"{filename}.pdf"
+                    try:
+                        logger.info("Purging resource %s (%s) from Akvo RAG Knowledge Base %s", res_id, filename, kb_id)
+                        res = client.delete_document_by_name(kb_id=kb_id, filename=filename)
+                        if res:
+                            deleted = True
+                            break
+                    except (AkvoRAGError, Exception) as e:
+                        logger.error("Failed to delete document %s from Akvo RAG: %s", filename, str(e))
+
+        if not deleted and res_id:
+            try:
                 client.delete_document(kb_id=kb_id, doc_id=res_id)
-        except (AkvoRAGError, Exception) as e:
-            logger.error("Failed to delete document %s from Akvo RAG: %s", res_id or filename, str(e))
+            except Exception as e:
+                logger.debug("Direct doc_id delete skipped or not found: %s", str(e))
 
     def before_resource_delete(
         self,

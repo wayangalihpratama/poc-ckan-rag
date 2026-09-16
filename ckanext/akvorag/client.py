@@ -4,6 +4,7 @@ Interfaces with Akvo RAG's multi-tenant /api/v1/apps endpoints.
 """
 
 import os
+import re
 import json
 import logging
 from typing import Any, Dict, List, Optional, Union
@@ -269,13 +270,34 @@ class AkvoRAGClient:
     def delete_document_by_name(self, kb_id: int, filename: str) -> List[Dict[str, Any]]:
         """
         Find and delete documents from a Knowledge Base matching a filename.
+        Supports exact match, case-insensitive match, and normalized alphanumeric matching.
         """
         clean_name = os.path.basename(filename).strip()
-        docs = self.list_documents(kb_id=kb_id, search=clean_name)
+        docs = self.list_documents(kb_id=kb_id)
+
+        def _normalize(s: str) -> str:
+            stem = s.rsplit(".", 1)[0] if "." in s else s
+            return re.sub(r"[^a-zA-Z0-9]", "", stem).lower()
+
+        norm_target = _normalize(clean_name)
         results = []
         for doc in docs:
             doc_filename = os.path.basename(doc.get("file_name", "")).strip()
-            if doc_filename.lower() == clean_name.lower() or doc_filename.lower().endswith(clean_name.lower()):
+            norm_doc = _normalize(doc_filename)
+
+            is_match = (
+                doc_filename.lower() == clean_name.lower()
+                or doc_filename.lower().endswith(clean_name.lower())
+                or clean_name.lower().endswith(doc_filename.lower())
+                or (norm_target and norm_target == norm_doc)
+                or (
+                    norm_target
+                    and len(norm_target) >= 5
+                    and (norm_target in norm_doc or norm_doc in norm_target)
+                )
+            )
+
+            if is_match:
                 doc_id = doc.get("id")
                 if doc_id is not None:
                     res = self.delete_document(kb_id=kb_id, doc_id=doc_id)

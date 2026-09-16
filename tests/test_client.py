@@ -241,6 +241,21 @@ def test_delete_document_by_name(client):
         mock_delete.assert_called_once_with(kb_id=101, doc_id=10)
 
 
+def test_delete_document_by_name_normalized(client):
+    with patch.object(client, "list_documents") as mock_list, \
+         patch.object(client, "delete_document") as mock_delete:
+        mock_list.return_value = [
+            {"id": 99, "file_name": "Hydroponics-Manual-COMFSM__2___1_-1.pdf"},
+        ]
+        mock_delete.return_value = {"success": True}
+
+        results = client.delete_document_by_name(
+            kb_id=101, filename="Hydroponics-Manual-COMFSM (2) (1)-1.pdf"
+        )
+        assert len(results) == 1
+        mock_delete.assert_called_once_with(kb_id=101, doc_id=99)
+
+
 @patch("requests.get")
 def test_error_handling_not_found(mock_get, client):
     mock_response = MagicMock(spec=requests.Response)
