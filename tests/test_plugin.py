@@ -112,6 +112,38 @@ def test_after_resource_create_csv_ignored(mock_get_client):
 
 @patch("ckanext.akvorag.plugin.get_akvorag_client")
 @patch("ckanext.akvorag.plugin.get_configured_kb_id")
+def test_before_resource_delete(mock_get_kb, mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_get_kb.return_value = 101
+
+    plugin = AkvoRAGPlugin()
+    resource_to_delete = {"id": "res_001"}
+    resources_list = [
+        {"id": "res_001", "name": "water_survey.pdf", "format": "PDF"},
+        {"id": "res_002", "name": "metadata.json", "format": "JSON"},
+    ]
+
+    plugin.before_resource_delete(context={}, resource=resource_to_delete, resources=resources_list)
+    mock_client.delete_document_by_name.assert_called_once_with(kb_id=101, filename="water_survey.pdf")
+
+
+@patch("ckanext.akvorag.plugin.get_akvorag_client")
+@patch("ckanext.akvorag.plugin.get_configured_kb_id")
+def test_after_resource_delete_with_list(mock_get_kb, mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    mock_get_kb.return_value = 101
+
+    plugin = AkvoRAGPlugin()
+    # When CKAN core passes the list of remaining resources
+    plugin.after_resource_delete(context={}, data_dict=[{"id": "res_002"}])
+    mock_client.delete_document.assert_not_called()
+    mock_client.delete_document_by_name.assert_not_called()
+
+
+@patch("ckanext.akvorag.plugin.get_akvorag_client")
+@patch("ckanext.akvorag.plugin.get_configured_kb_id")
 def test_after_resource_delete_with_filename(mock_get_kb, mock_get_client):
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client

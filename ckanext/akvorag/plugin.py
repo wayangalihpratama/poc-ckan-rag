@@ -181,15 +181,18 @@ class AkvoRAGPlugin(plugins.SingletonPlugin, toolkit.DefaultDatasetForm):
         # Re-index updated resource
         self.after_resource_create(context, data_dict)
 
-    def after_resource_delete(self, context: Dict[str, Any], data_dict: Dict[str, Any]):
-        """Triggered after a resource is deleted from CKAN."""
+    def _delete_resource_from_akvorag(self, resource_dict: Dict[str, Any]):
+        """Helper to purge a CKAN resource from Akvo RAG."""
+        if not isinstance(resource_dict, dict):
+            return
+
         client = get_akvorag_client()
         kb_id = get_configured_kb_id()
         if not client or not kb_id:
             return
 
-        res_id = data_dict.get("id")
-        name = data_dict.get("name") or data_dict.get("url") or ""
+        res_id = resource_dict.get("id")
+        name = resource_dict.get("name") or resource_dict.get("url") or ""
         filename = os.path.basename(name).strip() if name else ""
 
         try:
@@ -202,6 +205,30 @@ class AkvoRAGPlugin(plugins.SingletonPlugin, toolkit.DefaultDatasetForm):
                 client.delete_document(kb_id=kb_id, doc_id=res_id)
         except (AkvoRAGError, Exception) as e:
             logger.error("Failed to delete document %s from Akvo RAG: %s", res_id or filename, str(e))
+
+    def before_resource_delete(
+        self,
+        context: Dict[str, Any],
+        resource: Dict[str, Any],
+        resources: Optional[Any] = None,
+    ):
+        """Triggered immediately before a resource is deleted from CKAN."""
+        target_res = resource
+        if resources and isinstance(resources, list):
+            res_id = resource.get("id") if isinstance(resource, dict) else None
+            for r in resources:
+                if isinstance(r, dict) and r.get("id") == res_id:
+                    target_res = r
+                    break
+        self._delete_resource_from_akvorag(target_res)
+
+    def after_resource_delete(self, context: Dict[str, Any], data_dict: Any):
+        """Triggered after a resource is deleted from CKAN."""
+        if isinstance(data_dict, list):
+            # CKAN core passes remaining resources list; before_resource_delete already purged it
+            return
+        elif isinstance(data_dict, dict):
+            self._delete_resource_from_akvorag(data_dict)
 
     # ------------------------------------------------------------------
     # IPackageController Hooks
