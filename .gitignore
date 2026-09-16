@@ -64,7 +64,9 @@ lancedb/
 .coverage
 htmlcov/
 
+# Node / Frontend dependencies
+node_modules/
+
 .agent/
 agent_docs/
-task.mdagent_docs/
 task.md

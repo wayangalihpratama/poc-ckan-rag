@@ -10,10 +10,12 @@ RUN apk update && \
         bash \
         gcc \
         musl-dev \
-        postgresql-client
+        postgresql-client \
+        nodejs \
+        npm
 
 # Install testing dependencies
-RUN pip install --no-cache-dir --ignore-installed pytest pytest-cov
+RUN pip install --no-cache-dir --ignore-installed pytest pytest-cov pytest-mock
 
 # Set working directory for extensions
 WORKDIR /srv/app
