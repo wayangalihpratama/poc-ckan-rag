@@ -68,7 +68,10 @@ From the project root:
 ```bash
 docker compose up -d
 ```
-Verify all 4 services (`ckan_web`, `ckan_db`, `ckan_solr`, `ckan_redis`) are healthy:
+> [!NOTE]
+> **Zero Host Setup Required**: The container automatically initializes PostgreSQL, Solr, Redis, installs the Python extension, and vendors the `akvo-rag-js` chat widget on boot. You do not need Python or Node.js installed on your host machine.
+
+Verify all services (`ckan_web`, `ckan_db`, `ckan_solr`, `ckan_redis`) are up:
 ```bash
 docker compose ps
 ```
@@ -150,13 +153,13 @@ docker compose exec -it ckan ckan akvorag status
 
 ---
 
-### Step 7: Interact with the AI Assistant
+### Step 7: Interact with the Akvo AI Assistant
 
 #### Method A: In-Portal Floating Chat Widget
-1. Click the circular blue **AI Assistant** button in the bottom right corner of any page.
+1. Click the circular blue **Akvo AI** button in the bottom right corner of any page.
 2. Ask any question about your uploaded documents:
    > *"What was the average pH level recorded in the reservoir?"*
-3. Receive answers with source citations and page numbers.
+3. Receive real-time streaming answers with highlighted source citations and page numbers.
 
 #### Method B: Terminal CLI
 Query the Knowledge Base directly from your terminal:
@@ -182,36 +185,28 @@ When you delete a PDF resource or an entire dataset from CKAN:
 
 ---
 
-## 📦 Frontend Asset Management (`akvo-rag-js`)
-
-The extension tracks the official [`akvo-rag-js`](https://github.com/akvo/akvo-rag-js) NPM package:
-- **`package.json`**: Declares `"akvo-rag-js": "^1.2.2"`.
-- **Vendoring Script**: `npm run build:assets` copies compiled bundle assets (`akvo-rag.js`, `akvo-rag.css`, and fonts) to `ckanext/akvorag/public/`.
-- **Docker Auto-Build**: The Docker container automatically runs `npm install` and `npm run build:assets` during startup.
-
-```bash
-# Install / update NPM package
-npm install
-
-# Re-vendor assets into CKAN public directory
-npm run build:assets
-```
-
----
-
 ## 🧪 Automated Testing & CI/CD
 
-### Local Execution
-Execute the full test suite (52 tests, 92% coverage) inside the isolated container environment:
+### Run Test Suite Locally
+Execute all 53 unit, integration, and E2E tests inside the container (with coverage check):
 ```bash
 ./run_tests.sh
 ```
 
-### GitHub Actions CI Workflow
-Continuous Integration is configured via [`.github/workflows/ci.yml`](.github/workflows/ci.yml). On every `push` and `pull_request` targeting `main`:
-1. Spawns Docker Compose stack.
-2. Waits for service readiness.
-3. Executes `./run_tests.sh` and verifies the minimum **≥80% coverage gate**.
+### GitHub Actions CI
+Continuous Integration runs on every push and PR to `main` via [`.github/workflows/ci.yml`](.github/workflows/ci.yml), ensuring the **≥80% test coverage gate** is strictly enforced.
+
+---
+
+## 🔧 Frontend Development (Optional)
+
+The chat widget frontend is bundled from the official [`akvo-rag-js`](https://github.com/akvo/akvo-rag-js) NPM package.
+- **Inside Docker**: Vendoring happens automatically on container start.
+- **Host Development**: If you are modifying frontend assets directly on your host machine:
+  ```bash
+  npm install              # Install NPM package
+  npm run build:assets     # Vendor bundle into ckanext/akvorag/public/
+  ```
 
 ---
 
