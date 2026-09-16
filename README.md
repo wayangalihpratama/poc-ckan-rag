@@ -1,8 +1,8 @@
 # CKAN to Akvo RAG Knowledgebase Integration PoC 🚀
 
 [![CI](https://github.com/wayangalihpratama/poc-ckan-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/wayangalihpratama/poc-ckan-rag/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-52%20passed-brightgreen.svg)]()
-[![Coverage](https://img.shields.io/badge/coverage-92%25-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-60%20passed-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)]()
 [![CKAN](https://img.shields.io/badge/CKAN-2.10.4-blue.svg)](https://ckan.org)
 [![Akvo RAG](https://img.shields.io/badge/Akvo%20RAG-Multi--Tenant-orange.svg)](https://github.com/akvo)
 
@@ -185,10 +185,40 @@ When you delete a PDF resource or an entire dataset from CKAN:
 
 ---
 
+## 💻 CKAN `akvorag` CLI Reference (`IClick`)
+
+The `ckanext-akvorag` extension implements CKAN's `IClick` plugin interface to provide administrative commands (`ckan akvorag ...`) directly within the CKAN CLI runtime:
+
+| Command | Description | Example Usage |
+| :--- | :--- | :--- |
+| **`--help`** | Displays command group usage and options. | `docker compose exec -it ckan ckan akvorag --help` |
+| **`status`** | Verifies endpoint connectivity, app token validity, and active target KB ID. | `docker compose exec -it ckan ckan akvorag status` |
+| **`register`** | Provisions a new app token and Knowledge Base in Akvo RAG. | `docker compose exec -it ckan ckan akvorag register -t "<JWT>" -a "CKAN Portal"` |
+| **`sync-all`** | Scans all portal datasets and batch-uploads all existing PDFs to Akvo RAG. | `docker compose exec -it ckan ckan akvorag sync-all` |
+| **`query`** | Asks natural language questions and streams answers with citations to stdout. | `docker compose exec -it ckan ckan akvorag query "Summarize the findings"` |
+
+### Command Execution Quick Reference
+
+```bash
+# 1. View all registered Akvo RAG commands & help text
+docker compose exec -T ckan ckan akvorag --help
+
+# 2. Check Akvo RAG connection & knowledgebase status
+docker compose exec -T ckan ckan akvorag status
+
+# 3. Test bulk synchronization of portal PDFs
+docker compose exec -T ckan ckan akvorag sync-all
+
+# 4. Ask a question directly via CLI
+docker compose exec -T ckan ckan akvorag query "What is the water pH level in the latest report?"
+```
+
+---
+
 ## 🧪 Automated Testing & CI/CD
 
 ### Run Test Suite Locally
-Execute all 53 unit, integration, and E2E tests inside the container (with coverage check):
+Execute all 60 unit, integration, and E2E tests inside the container (with coverage check):
 ```bash
 ./run_tests.sh
 ```

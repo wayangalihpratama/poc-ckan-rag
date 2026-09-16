@@ -103,28 +103,33 @@ sequenceDiagram
 ## 3. Component Details & Data Contracts
 
 ### 3.1 CKAN Plugin (`ckanext/akvorag/plugin.py`)
-- Implements: `IResourceController`, `IPackageController`, `IConfigurer`, `ITemplateHelpers`.
+- Implements: `IResourceController`, `IPackageController`, `IConfigurer`, `ITemplateHelpers`, `IClick`.
 - Hook definitions:
   - `after_resource_create(context, data_dict)`
   - `after_resource_update(context, data_dict)`
+  - `before_resource_delete(context, resource, resources)`
   - `after_resource_delete(context, data_dict)`
-  - `after_package_delete(context, data_dict)`
+  - `delete(entity)` (PackageController)
+  - `after_dataset_delete(context, data_dict)`
 
 ### 3.2 Akvo RAG Client (`ckanext/akvorag/client.py`)
 - Encapsulates `/api/v1/apps` REST interactions:
   - `register_app(app_name, domain, superuser_token)` ➔ `tok_...`, `knowledge_base_id`
   - `submit_upload_job(file_path, filename, callback_params)` ➔ `job_id`
   - `delete_document(kb_id, document_id)` ➔ status
+  - `delete_document_by_name(kb_id, filename)` ➔ status
   - `get_me()` ➔ app status
+  - `submit_chat_job(prompt, kb_id)` ➔ answer + citations
 
 ### 3.3 CLI Interface (`ckanext/akvorag/cli.py`)
-- `ckan akvorag register`: Registers the host application.
-- `ckan akvorag status`: Checks connection and KB configuration.
-- `ckan akvorag sync-all`: Bulk-scans existing PDF resources.
+- `ckan akvorag register`: Registers the host application and provisions a default KB.
+- `ckan akvorag status`: Checks connection, token validity, and active KB configuration.
+- `ckan akvorag sync-all`: Bulk-scans existing PDF resources across all datasets.
+- `ckan akvorag query`: Direct CLI conversational Q&A over the knowledgebase.
 
 ### 3.4 Frontend Integration (`akvo-rag-js`)
 - Embedded in CKAN layout via Jinja template extension (`ckanext/akvorag/templates/`).
-- Initialized with target Knowledge Base ID and public endpoint URL.
+- Initialized with target Knowledge Base ID, public endpoint, and WebSocket streaming URL.
 
 ---
 
@@ -132,8 +137,11 @@ sequenceDiagram
 
 ### 4.1 Automated Test Suite
 - `pytest tests/test_client.py`: Unit tests mocking Akvo RAG `/api/v1/apps` responses.
-- `pytest tests/test_plugin.py`: Unit tests for `IResourceController` hook execution.
-- `pytest tests/test_cli.py`: Click CLI runner tests.
+- `pytest tests/test_plugin.py`: Unit tests for `IResourceController` and `IPackageController` hook execution.
+- `pytest tests/test_helpers.py`: Unit tests for template helper functions and URL resolvers.
+- `pytest tests/test_templates.py`: Unit tests for template rendering and widget snippets.
+- `pytest tests/test_cli.py`: Click CLI runner tests for all 4 commands.
+- `pytest tests/test_e2e.py`: Hermetic end-to-end integration tests with mocked API backends.
 
 ### 4.2 End-to-End Verification
 - Complete verification loop: Start ngrok ➔ Register CKAN app ➔ Upload PDF ➔ Verify vector chunking in Akvo RAG ➔ Query via `akvo-rag-js` ➔ Delete PDF in CKAN ➔ Verify vector purge.
