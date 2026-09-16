@@ -53,9 +53,10 @@ def akvorag_is_configured() -> bool:
 
 def akvorag_get_widget_config() -> Dict[str, Any]:
     """Return a dictionary of widget configuration parameters suitable for serialization."""
+    site_title = toolkit.config.get("ckan.site_title") or "CKAN Portal"
     return {
         "endpoint": akvorag_get_endpoint(),
         "knowledgeBaseId": akvorag_get_kb_id(),
         "isConfigured": akvorag_is_configured(),
-        "title": toolkit.config.get("ckan.site_title", "CKAN Portal") + " AI Assistant",
+        "title": f"{site_title} AI Assistant",
     }
