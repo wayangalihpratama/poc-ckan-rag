@@ -1,5 +1,183 @@
-import ckan.plugins as plugins
+"""
+CKAN Akvo RAG Synchronization Plugin
+Hooks into CKAN's resource and package lifecycle to synchronize PDF files with Akvo RAG.
+"""
 
-class AkvoRAGPlugin(plugins.SingletonPlugin):
-    """CKAN extension plugin for Akvo RAG synchronization."""
-    pass
+import os
+import logging
+from typing import Any, Dict, Optional
+
+import ckan.plugins as plugins
+import ckan.plugins.toolkit as toolkit
+
+from ckanext.akvorag.client import AkvoRAGClient, AkvoRAGError
+
+logger = logging.getLogger(__name__)
+
+
+def is_pdf_resource(resource: Dict[str, Any]) -> bool:
+    """Check if the given resource dictionary represents a PDF document."""
+    res_format = (resource.get("format") or "").strip().lower()
+    mimetype = (resource.get("mimetype") or "").strip().lower()
+    url = (resource.get("url") or "").strip().lower()
+
+    if res_format == "pdf" or mimetype == "application/pdf" or url.endswith(".pdf"):
+        return True
+    return False
+
+
+def get_resource_file_path(resource: Dict[str, Any]) -> Optional[str]:
+    """Resolve the absolute on-disk path for an uploaded CKAN resource."""
+    res_id = resource.get("id")
+    if not res_id:
+        return None
+
+    # Check for direct upload_file path if populated in context
+    direct_path = resource.get("upload_file")
+    if direct_path and os.path.exists(direct_path):
+        return direct_path
+
+    storage_path = toolkit.config.get("ckan.storage_path", "/var/lib/ckan")
+    
+    # Standard CKAN path storage pattern: storage_path/resources/xxx/xxx/xxxxxxxx
+    if len(res_id) >= 6:
+        candidate_path = os.path.join(
+            storage_path, "resources", res_id[0:3], res_id[3:6], res_id[6:]
+        )
+        if os.path.exists(candidate_path):
+            return candidate_path
+
+    # Fallback to direct resources/res_id pattern
+    fallback_path = os.path.join(storage_path, "resources", res_id)
+    if os.path.exists(fallback_path):
+        return fallback_path
+
+    return None
+
+
+def get_akvorag_client() -> Optional[AkvoRAGClient]:
+    """Instantiate AkvoRAGClient using CKAN configuration."""
+    base_url = (
+        toolkit.config.get("ckanext.akvorag.base_url")
+        or os.environ.get("AKVO_RAG_BASE_URL")
+        or "https://akvo.ngrok.dev"
+    )
+    app_token = (
+        toolkit.config.get("ckanext.akvorag.app_token")
+        or os.environ.get("AKVO_RAG_APP_TOKEN")
+    )
+
+    if not app_token:
+        logger.warning(
+            "Akvo RAG app_token is not configured. Document synchronization skipped."
+        )
+        return None
+
+    return AkvoRAGClient(base_url=base_url, app_token=app_token)
+
+
+def get_configured_kb_id() -> Optional[int]:
+    """Retrieve configured Knowledge Base ID."""
+    kb_id_str = (
+        toolkit.config.get("ckanext.akvorag.knowledge_base_id")
+        or os.environ.get("AKVO_RAG_KNOWLEDGE_BASE_ID")
+    )
+    if kb_id_str:
+        try:
+            return int(kb_id_str)
+        except (ValueError, TypeError):
+            logger.warning("Invalid knowledge_base_id configured: %s", kb_id_str)
+    return None
+
+
+class AkvoRAGPlugin(plugins.SingletonPlugin, toolkit.DefaultDatasetForm):
+    """
+    Akvo RAG Synchronization Plugin.
+    Implements IResourceController and IPackageController lifecycle hooks.
+    """
+
+    plugins.implements(plugins.IConfigurer)
+    plugins.implements(plugins.IResourceController, inherit=True)
+    plugins.implements(plugins.IPackageController, inherit=True)
+
+    # ------------------------------------------------------------------
+    # IConfigurer
+    # ------------------------------------------------------------------
+    def update_config(self, config_: toolkit.CKANConfig):
+        """Register template directory and update configuration."""
+        toolkit.add_template_directory(config_, "templates")
+        toolkit.add_public_directory(config_, "public")
+        toolkit.add_resource("fanstatic", "akvorag")
+
+    # ------------------------------------------------------------------
+    # IResourceController Hooks
+    # ------------------------------------------------------------------
+    def after_resource_create(self, context: Dict[str, Any], data_dict: Dict[str, Any]):
+        """Triggered immediately after a resource is created."""
+        if not is_pdf_resource(data_dict):
+            logger.debug("Resource %s is not a PDF. Skipping Akvo RAG sync.", data_dict.get("id"))
+            return
+
+        client = get_akvorag_client()
+        kb_id = get_configured_kb_id()
+        if not client or not kb_id:
+            logger.info("Akvo RAG credentials or KB ID missing. Skipping upload sync for %s", data_dict.get("id"))
+            return
+
+        file_path = get_resource_file_path(data_dict)
+        if not file_path:
+            logger.warning("Could not resolve local file path for resource %s", data_dict.get("id"))
+            return
+
+        try:
+            filename = data_dict.get("name") or data_dict.get("url") or "document.pdf"
+            if not filename.lower().endswith(".pdf"):
+                filename = f"{filename}.pdf"
+
+            callback_params = {
+                "ckan_resource_id": data_dict.get("id"),
+                "ckan_package_id": data_dict.get("package_id"),
+                "ckan_site_url": toolkit.config.get("ckan.site_url", "http://localhost:5000"),
+            }
+
+            logger.info("Submitting PDF upload job to Akvo RAG for resource: %s", data_dict.get("id"))
+            job_result = client.submit_upload_job(
+                file_path=file_path,
+                filename=filename,
+                kb_id=kb_id,
+                callback_params=callback_params,
+            )
+            logger.info("Akvo RAG upload job accepted: %s", job_result.get("job_id"))
+        except (AkvoRAGError, Exception) as e:
+            logger.error("Failed to submit upload job to Akvo RAG for resource %s: %s", data_dict.get("id"), str(e))
+
+    def after_resource_update(self, context: Dict[str, Any], data_dict: Dict[str, Any]):
+        """Triggered after a resource is modified or re-uploaded."""
+        # Re-index updated resource
+        self.after_resource_create(context, data_dict)
+
+    def after_resource_delete(self, context: Dict[str, Any], data_dict: Dict[str, Any]):
+        """Triggered after a resource is deleted from CKAN."""
+        client = get_akvorag_client()
+        kb_id = get_configured_kb_id()
+        if not client or not kb_id:
+            return
+
+        res_id = data_dict.get("id")
+        if not res_id:
+            return
+
+        try:
+            logger.info("Purging resource %s from Akvo RAG Knowledge Base %s", res_id, kb_id)
+            client.delete_document(kb_id=kb_id, document_id=res_id)
+        except (AkvoRAGError, Exception) as e:
+            logger.error("Failed to delete document %s from Akvo RAG: %s", res_id, str(e))
+
+    # ------------------------------------------------------------------
+    # IPackageController Hooks
+    # ------------------------------------------------------------------
+    def after_package_delete(self, context: Dict[str, Any], data_dict: Dict[str, Any]):
+        """Triggered after an entire dataset package is deleted."""
+        resources = data_dict.get("resources") or []
+        for resource in resources:
+            self.after_resource_delete(context, resource)
