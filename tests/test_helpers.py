@@ -87,15 +87,26 @@ def test_akvorag_get_ws_url_bare_host():
         assert ws_url == "wss://myrag.org/ws/chat"
 
 
-def test_akvorag_get_widget_config():
+def test_akvorag_get_widget_config_default():
     with patch("ckanext.akvorag.helpers.akvorag_get_endpoint", return_value="https://akvo.ngrok.dev"), \
          patch("ckanext.akvorag.helpers.akvorag_get_ws_url", return_value="wss://akvo.ngrok.dev/ws/chat"), \
          patch("ckanext.akvorag.helpers.akvorag_get_kb_id", return_value=101), \
          patch("ckanext.akvorag.helpers.akvorag_is_configured", return_value=True), \
-         patch("ckan.plugins.toolkit.config.get", return_value="My Portal"):
+         patch("ckan.plugins.toolkit.config.get", return_value=None), \
+         patch.dict("os.environ", {}, clear=True):
         cfg = helpers.akvorag_get_widget_config()
         assert cfg["endpoint"] == "https://akvo.ngrok.dev"
         assert cfg["wsUrl"] == "wss://akvo.ngrok.dev/ws/chat"
         assert cfg["knowledgeBaseId"] == 101
         assert cfg["isConfigured"] is True
-        assert "My Portal" in cfg["title"]
+        assert cfg["title"] == "Akvo AI"
+
+
+def test_akvorag_get_widget_config_custom_title():
+    with patch("ckanext.akvorag.helpers.akvorag_get_endpoint", return_value="https://akvo.ngrok.dev"), \
+         patch("ckanext.akvorag.helpers.akvorag_get_ws_url", return_value="wss://akvo.ngrok.dev/ws/chat"), \
+         patch("ckanext.akvorag.helpers.akvorag_get_kb_id", return_value=101), \
+         patch("ckanext.akvorag.helpers.akvorag_is_configured", return_value=True), \
+         patch("ckan.plugins.toolkit.config.get", return_value="Custom Bot"):
+        cfg = helpers.akvorag_get_widget_config()
+        assert cfg["title"] == "Custom Bot"

@@ -69,11 +69,15 @@ def akvorag_get_ws_url() -> str:
 
 def akvorag_get_widget_config() -> Dict[str, Any]:
     """Return a dictionary of widget configuration parameters suitable for serialization."""
-    site_title = toolkit.config.get("ckan.site_title") or "CKAN Portal"
+    custom_title = (
+        toolkit.config.get("ckanext.akvorag.widget_title")
+        or os.environ.get("AKVO_RAG_WIDGET_TITLE")
+    )
+    title = custom_title or "Akvo AI"
     return {
         "endpoint": akvorag_get_endpoint(),
         "wsUrl": akvorag_get_ws_url(),
         "knowledgeBaseId": akvorag_get_kb_id(),
         "isConfigured": akvorag_is_configured(),
-        "title": f"{site_title} AI Assistant",
+        "title": title,
     }
