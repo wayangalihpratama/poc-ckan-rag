@@ -1,0 +1,11 @@
+{
+  "name": "ckanext-akvorag",
+  "version": "0.1.0",
+  "description": "CKAN Extension for Akvo RAG Knowledgebase synchronization and AI chat widget",
+  "scripts": {
+    "build:assets": "node scripts/vendor-assets.js"
+  },
+  "dependencies": {
+    "akvo-rag-js": "^1.2.2"
+  }
+}

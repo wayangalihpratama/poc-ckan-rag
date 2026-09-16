@@ -4,7 +4,8 @@
   {{ super() }}
 
   {# Dataset AI Summary & Knowledge Query Box #}
-  {% if pkg.resources and h.akvorag_is_configured() %}
+  {% set dataset = pkg_dict or pkg or c.pkg_dict if c is defined else None %}
+  {% if dataset and dataset.resources and h.akvorag_is_configured() %}
     <section class="module akvorag-dataset-qa" style="margin-top: 24px; padding: 18px; border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 8px;">
       <h3 class="module-heading" style="margin-top: 0; color: #1e40af; font-size: 16px; font-weight: 600;">
         🤖 AI Knowledge Assistant

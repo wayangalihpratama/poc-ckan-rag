@@ -51,11 +51,28 @@ def akvorag_is_configured() -> bool:
     return bool(token and endpoint)
 
 
+def akvorag_get_ws_url() -> str:
+    """Return the configured or derived WebSocket URL for Akvo RAG real-time chat."""
+    ws_url = (
+        toolkit.config.get("ckanext.akvorag.ws_url")
+        or os.environ.get("AKVO_RAG_WS_URL")
+    )
+    if ws_url:
+        return ws_url.rstrip("/")
+    endpoint = akvorag_get_endpoint()
+    if endpoint.startswith("https://"):
+        return endpoint.replace("https://", "wss://", 1) + "/ws/chat"
+    elif endpoint.startswith("http://"):
+        return endpoint.replace("http://", "ws://", 1) + "/ws/chat"
+    return f"wss://{endpoint}/ws/chat"
+
+
 def akvorag_get_widget_config() -> Dict[str, Any]:
     """Return a dictionary of widget configuration parameters suitable for serialization."""
     site_title = toolkit.config.get("ckan.site_title") or "CKAN Portal"
     return {
         "endpoint": akvorag_get_endpoint(),
+        "wsUrl": akvorag_get_ws_url(),
         "knowledgeBaseId": akvorag_get_kb_id(),
         "isConfigured": akvorag_is_configured(),
         "title": f"{site_title} AI Assistant",

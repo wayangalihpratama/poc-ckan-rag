@@ -14,11 +14,13 @@ def test_plugin_get_helpers():
     helpers_dict = plugin.get_helpers()
 
     assert "akvorag_get_endpoint" in helpers_dict
+    assert "akvorag_get_ws_url" in helpers_dict
     assert "akvorag_get_kb_id" in helpers_dict
     assert "akvorag_get_app_token" in helpers_dict
     assert "akvorag_is_configured" in helpers_dict
     assert "akvorag_get_widget_config" in helpers_dict
     assert callable(helpers_dict["akvorag_get_endpoint"])
+    assert callable(helpers_dict["akvorag_get_ws_url"])
 
 
 def test_widget_snippet_html_structure():
@@ -33,10 +35,7 @@ def test_widget_snippet_html_structure():
     with open(template_path, "r") as f:
         content = f.read()
 
-    assert "akvorag-launcher" in content
-    assert "akvorag-chat-panel" in content
-    assert "akvorag-chat-form" in content
-    assert "akvorag-chat-input" in content
-    assert "akvorag_chat.css" in content
-    assert "akvorag_chat.js" in content
-    assert "h.akvorag_get_endpoint()" in content
+    assert "akvo-rag.css" in content
+    assert "akvo-rag.js" in content
+    assert "AkvoRAG.initChat" in content
+    assert "h.akvorag_get_ws_url()" in content

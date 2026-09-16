@@ -110,6 +110,7 @@ class AkvoRAGPlugin(plugins.SingletonPlugin, toolkit.DefaultDatasetForm):
         from ckanext.akvorag import helpers
         return {
             "akvorag_get_endpoint": helpers.akvorag_get_endpoint,
+            "akvorag_get_ws_url": helpers.akvorag_get_ws_url,
             "akvorag_get_kb_id": helpers.akvorag_get_kb_id,
             "akvorag_get_app_token": helpers.akvorag_get_app_token,
             "akvorag_is_configured": helpers.akvorag_is_configured,

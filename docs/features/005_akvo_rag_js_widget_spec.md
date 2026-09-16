@@ -11,47 +11,63 @@ Integrates the official **[`akvo-rag-js`](https://github.com/akvo/akvo-rag-js)**
 flowchart TD
     subgraph Browser["User Web Browser"]
         CKAN_PAGE["CKAN Dataset / Portal Page"]
-        WIDGET["akvo-rag-js Floating / Embedded Widget"]
+        WIDGET["akvo-rag-js Floating Widget (AkvoRAG.initChat)"]
         CKAN_PAGE --> WIDGET
     end
 
-    subgraph RAG_Cloud["Akvo RAG Platform (https://akvo.ngrok.dev)"]
-        STREAM["POST /api/v1/apps/jobs (Chat Stream)"]
+    subgraph Container["CKAN Docker Container"]
+        NPM["npm install akvo-rag-js && npm run build:assets"]
+        PUBLIC["ckanext/akvorag/public/ (akvo-rag.js, akvo-rag.css)"]
+        HELPERS["helpers.akvorag_get_ws_url()"]
+        NPM --> PUBLIC
     end
 
-    WIDGET -->|"SSE / WebSocket Stream with Citations"| STREAM
+    subgraph RAG_Cloud["Akvo RAG Platform (https://akvo.ngrok.dev)"]
+        WS["WebSocket Server (wss://akvo.ngrok.dev/ws/chat)"]
+    end
+
+    WIDGET -->|"WebSocket Real-Time Stream with Citations"| WS
 ```
 
 ---
 
 ## 1. Technical Deliverables
 
-### 1.1 Jinja Template Integration
+### 1.1 Package Management & Vendoring
+- **`package.json`**: Tracks official dependency `"akvo-rag-js": "^1.2.2"`.
+- **`scripts/vendor-assets.js`**: `npm run build:assets` copies production bundles (`akvo-rag.js`, `akvo-rag.css`, font assets) to `ckanext/akvorag/public/`.
+- **Docker Auto-Vendoring**: `docker/entrypoint.sh` automatically installs dependencies and vendors assets on container initialization.
+
+### 1.2 Jinja Template Integration
 **Directory**: `/ckanext/akvorag/templates/`
 - `ckanext/akvorag/templates/package/read.html` (Dataset View):
-  - Injects `akvo-rag-js` widget container configured with the dataset/knowledge base scope.
-- `ckanext/akvorag/templates/akvorag/chat_widget.html`:
-  - Embeds the `akvo-rag-js` script tag and configuration snippet:
+  - Injects dataset AI assistant container with defensive dictionary checks.
+- `ckanext/akvorag/templates/akvorag/snippets/chat_widget.html`:
+  - Embeds the official `akvo-rag.css` and `akvo-rag.js` and initializes `AkvoRAG.initChat`:
   ```html
-  <script src="https://cdn.jsdelivr.net/npm/@akvo/akvo-rag-js/dist/akvo-rag.min.js"></script>
-  <div id="akvo-rag-chat" 
-       data-endpoint="https://akvo.ngrok.dev" 
-       data-kb-id="{{ h.akvorag_get_kb_id() }}">
-  </div>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/akvo-rag.css">
+  <script src="/akvo-rag.js"></script>
   <script>
-    AkvoRAG.init({
-      container: '#akvo-rag-chat',
-      endpoint: 'https://akvo.ngrok.dev',
-      knowledgeBaseId: {{ h.akvorag_get_kb_id() | tojson }},
-      title: 'CKAN AI Knowledge Assistant'
+    document.addEventListener("DOMContentLoaded", function() {
+      if (window.AkvoRAG && typeof window.AkvoRAG.initChat === 'function') {
+        window.AkvoRAG.initChat({
+          title: "{{ h.akvorag_get_widget_config().title }}",
+          kb_id: {{ h.akvorag_get_kb_id() or 'null' }},
+          wsURL: "{{ h.akvorag_get_ws_url() }}",
+          autoReconnect: true
+        });
+      }
     });
   </script>
   ```
 
-### 1.2 Template Helpers
+### 1.3 Template Helpers
 **File**: `/ckanext/akvorag/helpers.py`
 - `akvorag_get_kb_id()`: Returns configured Knowledge Base ID.
 - `akvorag_get_endpoint()`: Returns configured public RAG endpoint URL.
+- `akvorag_get_ws_url()`: Computes or returns WebSocket URL (`wss://.../ws/chat`).
+- `akvorag_get_widget_config()`: Serializes configuration dictionary for templates.
 
 ---
 

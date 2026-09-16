@@ -1,50 +1,31 @@
-{# Akvo RAG Chatbot Floating Widget Snippet #}
-<link rel="stylesheet" href="/akvorag_chat.css">
+{# Akvo RAG Official Chatbot Widget Snippet (akvo-rag-js) #}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" href="/akvo-rag.css">
 
-<!-- Floating AI Chat Launcher Button -->
-<button id="akvorag-launcher" class="akvorag-floating-launcher" aria-label="Open AI Assistant" title="Ask AI Knowledge Assistant">
-  <svg viewBox="0 0 24 24">
-    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.82.49 3.53 1.34 5L2 22l5.22-1.31C8.63 21.49 10.27 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/>
-  </svg>
-</button>
+{% if h.akvorag_is_configured() %}
+<script src="/akvo-rag.js"></script>
+<script>
+  (function() {
+    function initWidget() {
+      if (window.AkvoRAG && typeof window.AkvoRAG.initChat === 'function') {
+        window.AkvoRAG.initChat({
+          title: "{{ h.akvorag_get_widget_config().title }}",
+          kb_id: {{ h.akvorag_get_kb_id() or 'null' }},
+          wsURL: "{{ h.akvorag_get_ws_url() }}",
+          autoReconnect: true
+        });
+      }
+    }
 
-<!-- Slide-out Chat Panel -->
-<div id="akvorag-chat-panel" 
-     class="akvorag-chat-panel akvorag-hidden"
-     data-endpoint="{{ h.akvorag_get_endpoint() }}"
-     data-kb-id="{{ h.akvorag_get_kb_id() or '' }}"
-     data-configured="{{ 'true' if h.akvorag_is_configured() else 'false' }}">
-  
-  <div class="akvorag-header">
-    <div class="akvorag-header-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/>
-      </svg>
-      <span>AI Knowledge Assistant</span>
-    </div>
-    <button id="akvorag-close-btn" class="akvorag-header-close" aria-label="Close Chat">✕</button>
-  </div>
-
-  <div id="akvorag-messages" class="akvorag-messages-container">
-    {% if not h.akvorag_is_configured() %}
-      <div class="akvorag-status-banner">
-        <strong>⚠️ Setup Required:</strong> Akvo RAG credentials are not yet configured in <code>ckan.ini</code>. Run <code>ckan akvorag register</code> or configure <code>ckanext.akvorag.app_token</code>.
-      </div>
-    {% endif %}
-    
-    <div class="akvorag-msg akvorag-msg-assistant">
-      Hello! I am your CKAN AI Assistant. Ask me anything about the datasets, documents, and research reports in this portal.
-    </div>
-  </div>
-
-  <form id="akvorag-chat-form" class="akvorag-input-form">
-    <input id="akvorag-chat-input" 
-           type="text" 
-           placeholder="Ask a question about datasets..." 
-           autocomplete="off" 
-           required>
-    <button id="akvorag-send-btn" type="submit" class="akvorag-send-btn">Send</button>
-  </form>
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initWidget);
+    } else {
+      initWidget();
+    }
+  })();
+</script>
+{% else %}
+<div id="akvorag-unconfigured-banner" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 10px 14px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 13px; max-width: 300px;">
+  <strong>🤖 Akvo RAG Notice:</strong> AI Assistant is not configured. Run <code>ckan akvorag register</code> or set <code>ckanext.akvorag.app_token</code> in <code>ckan.ini</code>.
 </div>
-
-<script src="/akvorag_chat.js"></script>
+{% endif %}
