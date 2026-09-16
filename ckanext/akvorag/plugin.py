@@ -98,8 +98,23 @@ class AkvoRAGPlugin(plugins.SingletonPlugin, toolkit.DefaultDatasetForm):
 
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IClick)
+    plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IPackageController, inherit=True)
+
+    # ------------------------------------------------------------------
+    # ITemplateHelpers
+    # ------------------------------------------------------------------
+    def get_helpers(self):
+        """Register custom template helper functions."""
+        from ckanext.akvorag import helpers
+        return {
+            "akvorag_get_endpoint": helpers.akvorag_get_endpoint,
+            "akvorag_get_kb_id": helpers.akvorag_get_kb_id,
+            "akvorag_get_app_token": helpers.akvorag_get_app_token,
+            "akvorag_is_configured": helpers.akvorag_is_configured,
+            "akvorag_get_widget_config": helpers.akvorag_get_widget_config,
+        }
 
     # ------------------------------------------------------------------
     # IClick
