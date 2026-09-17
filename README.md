@@ -1,7 +1,7 @@
 # CKAN to Akvo RAG Knowledgebase Integration PoC 🚀
 
 [![CI](https://github.com/wayangalihpratama/poc-ckan-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/wayangalihpratama/poc-ckan-rag/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-60%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-61%20passed-brightgreen.svg)]()
 [![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)]()
 [![CKAN](https://img.shields.io/badge/CKAN-2.10.4-blue.svg)](https://ckan.org)
 [![Akvo RAG](https://img.shields.io/badge/Akvo%20RAG-Multi--Tenant-orange.svg)](https://github.com/akvo)
@@ -218,7 +218,7 @@ docker compose exec -T ckan ckan akvorag query "What is the water pH level in th
 ## 🧪 Automated Testing & CI/CD
 
 ### Run Test Suite Locally
-Execute all 60 unit, integration, and E2E tests inside the container (with coverage check):
+Execute all 61 unit, integration, and E2E tests inside the container (with coverage check):
 ```bash
 ./run_tests.sh
 ```

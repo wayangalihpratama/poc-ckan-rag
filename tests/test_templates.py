@@ -39,3 +39,22 @@ def test_widget_snippet_html_structure():
     assert "akvo-rag.js" in content
     assert "AkvoRAG.initChat" in content
     assert "h.akvorag_get_ws_url()" in content
+    assert "window.AkvoRAGReset" in content
+
+
+def test_package_read_template_structure():
+    import os
+
+    template_path = os.path.join(
+        os.path.dirname(__file__),
+        "../ckanext/akvorag/templates/package/read.html"
+    )
+    assert os.path.exists(template_path)
+
+    with open(template_path, "r") as f:
+        content = f.read()
+
+    assert "Ask AI About This Dataset" in content
+    assert "akvo-rag" in content
+    assert "window.AkvoRAGReset" in content
+

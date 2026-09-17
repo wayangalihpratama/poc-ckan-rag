@@ -6,25 +6,54 @@
 <script src="/akvo-rag.js"></script>
 <script>
   (function() {
-    function initWidget() {
+    var chatInstance = null;
+
+    function initWidget(opts) {
       if (window.AkvoRAG && typeof window.AkvoRAG.initChat === 'function') {
-        window.AkvoRAG.initChat({
+        // Destroy existing instance to cleanly tear down old WebSocket and in-memory chat history
+        if (chatInstance && typeof chatInstance.destroy === 'function') {
+          chatInstance.destroy();
+          chatInstance = null;
+        } else {
+          var existing = document.getElementById('akvo-rag');
+          if (existing) {
+            existing.remove();
+          }
+        }
+
+        var config = {
           title: "{{ h.akvorag_get_widget_config().title }}",
           kb_id: {{ h.akvorag_get_kb_id() or 'null' }},
           wsURL: "{{ h.akvorag_get_ws_url() }}",
           autoReconnect: true
-        });
+        };
+        if (opts && typeof opts === 'object') {
+          for (var key in opts) {
+            if (opts.hasOwnProperty(key)) {
+              config[key] = opts[key];
+            }
+          }
+        }
+        chatInstance = window.AkvoRAG.initChat(config);
 
-        // Keep chatbot widget minimized/closed by default
+        // Keep chatbot widget minimized/closed by default on initial load
         var widget = document.getElementById('akvo-rag');
-        if (widget) {
+        if (widget && (!opts || opts.minimize !== false)) {
           widget.classList.add('minimized');
         }
       }
     }
 
+    window.AkvoRAGReset = function(opts) {
+      // Clear visitor session token to start completely fresh conversation on backend
+      try {
+        localStorage.removeItem('akvo-visitor-id');
+      } catch (e) {}
+      initWidget(opts || { minimize: false });
+    };
+
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initWidget);
+      document.addEventListener('DOMContentLoaded', function() { initWidget(); });
     } else {
       initWidget();
     }
