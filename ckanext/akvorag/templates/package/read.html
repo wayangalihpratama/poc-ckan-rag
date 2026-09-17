@@ -15,7 +15,7 @@
       </p>
       <button type="button" 
               class="btn btn-primary" 
-              onclick="document.getElementById('akvorag-launcher') && document.getElementById('akvorag-launcher').click();"
+              onclick="(function(){ var w = document.getElementById('akvo-rag'); if (w) { w.classList.remove('minimized'); var inp = w.querySelector('input'); if (inp) { inp.focus(); } } else { var h = document.getElementById('akvorag-launcher') || document.getElementById('akvo-rag-header'); if (h) h.click(); } })()"
               style="font-weight: 500;">
         💬 Ask AI About This Dataset
       </button>
